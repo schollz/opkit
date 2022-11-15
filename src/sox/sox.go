@@ -45,7 +45,7 @@ func init() {
 }
 
 func run(args ...string) (string, string, error) {
-	log.Trace(strings.Join(args, " "))
+	log.Trace(strings.Join(args, " | "))
 	baseCmd := args[0]
 	cmdArgs := args[1:]
 	cmd := exec.Command(baseCmd, cmdArgs...)
@@ -216,9 +216,13 @@ func SilenceTrimEnd(fname string) (fname2 string, err error) {
 }
 
 // SilenceTrimEndMono trims silence from end of file and converts to mono
-func SilenceTrimEndMono(fname string) (fname2 string, err error) {
-	fname2 = Tmpfile()
-	_, _, err = run("sox", fname, fname2, "reverse", "silence", "1", "0.1", `-50d`, "reverse", "remix", "1,2")
+func SilenceTrimEndMono(fname string, fname2 string) (err error) {
+	_, channels, _ := Info(fname)
+	if channels > 1 {
+		_, _, err = run("sox", fname, fname2, "reverse", "silence", "1", "0.1", `-50d`, "reverse", "remix", "1,2")
+	} else {
+		_, _, err = run("sox", fname, fname2, "reverse", "silence", "1", "0.1", `-50d`, "reverse")
+	}
 	return
 }
 
