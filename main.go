@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -52,38 +55,75 @@ type Sample struct {
 }
 
 func makeKit(kind string, note float64) (err error) {
+	durations := make(map[string]float64)
+	b, err := ioutil.ReadFile("cache_durations.json")
+	if err != nil {
+		err = createDurations()
+		if err != nil {
+			log.Error(err)
+			return
+		}
+	}
+	b, _ = ioutil.ReadFile("cache_durations.json")
+	err = json.Unmarshal(b, &durations)
+	if err != nil {
+		return
+	}
 	log.Infof("making kit from '%s' tuned to %f", kind, note)
 	samples := make([]Sample, 1000)
 	i := 0
-	err = filepath.Walk("psp",
-		func(p string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
+	for p, duration := range durations {
+		if !strings.Contains(p, kind) || duration < 0.05 {
+			continue
+		}
+		_, fname := filepath.Split(p)
+		foo := strings.Split(fname, "_")
+		if len(foo) > 1 {
+			samples[i] = Sample{
+				Path:     p,
+				Duration: duration,
+				Midi:     sox.MustFloat(strconv.ParseFloat(foo[1], 64)),
 			}
-			if !info.IsDir() && filepath.Ext(p) == ".wav" && strings.Contains(p, kind) {
-				_, fname := filepath.Split(p)
-				foo := strings.Split(fname, "_")
-				if len(foo) > 1 {
-					samples[i] = Sample{
-						Path:     p,
-						Duration: sox.MustFloat(sox.Length(p)),
-						Midi:     sox.MustFloat(strconv.ParseFloat(foo[1], 64)),
-					}
-					i++
-				}
-			}
-			return nil
-		})
-	if err != nil {
-		log.Error(err)
+			i++
+		}
 	}
-
+	if i == 0 {
+		err = fmt.Errorf("no files found for '%s'", kind)
+		return
+	}
 	samples = samples[:i]
+
+	sort.Slice(samples, func(i, j int) bool {
+		return samples[i].Duration > samples[j].Duration
+	})
 	log.Infof("found %d samples for '%s'", len(samples), kind)
 	log.Tracef("samples: %+v", samples[0])
 	return
 }
 
+func createDurations() (err error) {
+	m := make(map[string]float64)
+	err = filepath.Walk("psp",
+		func(p string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && filepath.Ext(p) == ".wav" {
+				m[p] = sox.MustFloat(sox.Length(p))
+			}
+			return nil
+		})
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	b, err := json.MarshalIndent(m, " ", " ")
+	if err != nil {
+		return
+	}
+	err = ioutil.WriteFile("cache_durations.json", b, 0644)
+	return
+}
 func convertAllFiles() {
 	pathNew := "psp"
 	it := 0

@@ -34,15 +34,6 @@ func Tmpfile() string {
 	return filepath.Join(TempDir, TempPrefix+hex.EncodeToString(randBytes)+"."+TempType)
 }
 
-func init() {
-	log.SetLevel("info")
-	stdout, _, _ := run("aubio", "--help")
-	if !strings.Contains(stdout, "usage") {
-		panic("need to install aubio")
-	}
-
-}
-
 func run(args ...string) (string, string, error) {
 	log.Trace(strings.Join(args, " "))
 	baseCmd := args[0]

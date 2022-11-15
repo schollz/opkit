@@ -35,15 +35,6 @@ func Tmpfile() string {
 	return filepath.Join(TempDir, TempPrefix+hex.EncodeToString(randBytes)+"."+TempType)
 }
 
-func init() {
-	log.SetLevel("info")
-	stdout, _, _ := run("sox", "--help")
-	if !strings.Contains(stdout, "SoX") {
-		panic("need to install sox")
-	}
-
-}
-
 func run(args ...string) (string, string, error) {
 	log.Trace(strings.Join(args, " | "))
 	baseCmd := args[0]
