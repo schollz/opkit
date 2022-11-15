@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"path"
@@ -27,7 +28,7 @@ func init() {
 	flag.BoolVar(&flagDebug, "debug", false, "debug mode")
 	flag.BoolVar(&flagConvert, "convert", false, "convert all the samples")
 	flag.StringVar(&flagKit, "kit", "", "make kit (Kick, Snare, Hat, Bass)")
-	flag.Float64Var(&flagTune, "tune", 30, "midi note to tune kit")
+	flag.Float64Var(&flagTune, "tune", -1, "midi note to tune kit")
 }
 
 func main() {
@@ -48,6 +49,8 @@ func main() {
 			return
 		}
 	}
+	fmt.Println(closestNote(33, 60))
+	fmt.Println(repitchedLength(33, 60, 1))
 }
 
 type Sample struct {
@@ -81,10 +84,15 @@ func makeKit(kind string, note float64) (err error) {
 		_, fname := filepath.Split(p)
 		foo := strings.Split(fname, "_")
 		if len(foo) > 1 {
+			midi := sox.MustFloat(strconv.ParseFloat(foo[1], 64))
+			if flagTune > -1 {
+				duration = repitchedLength(midi, flagTune, duration)
+				midi = closestNote(midi, flagTune)
+			}
 			samples[i] = Sample{
 				Path:     p,
 				Duration: duration,
-				Midi:     sox.MustFloat(strconv.ParseFloat(foo[1], 64)),
+				Midi:     midi,
 			}
 			i++
 		}
@@ -121,6 +129,35 @@ func makeKit(kind string, note float64) (err error) {
 	b, _ = json.MarshalIndent(s, " ", " ")
 	fmt.Println(string(b))
 	log.Infof("found %d samples, total duration: %2.1f", len(s), duration)
+	return
+}
+
+func repitchedLength(note1, note2, duration float64) float64 {
+	cr := closestRatio(note1, note2)
+	return duration / cr
+}
+
+func closestRatio(note1, note2 float64) (ratio float64) {
+	closest := closestNote(note1, note2)
+	return noteRatio(closest, note1)
+}
+
+// closestNote finds the closest note between note1 and any octave of note2
+func closestNote(note1, note2 float64) (closest float64) {
+	note0 := math.Mod(note2, 12)
+	diff := 10000.0
+	for i := 0.0; i < 12; i++ {
+		note := note0 + (12.0 * i)
+		if math.Abs(note-note1) < diff {
+			closest = note
+			diff = math.Abs(note - note1)
+		}
+	}
+	return
+}
+
+func noteRatio(note1, note2 float64) (ratio float64) {
+	ratio = math.Pow(2, (note1-69)/12) / math.Pow(2, (note2-69)/12)
 	return
 }
 
