@@ -5,12 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/schollz/logger"
 	"github.com/schollz/postsolarpunk/src/aubio"
@@ -98,6 +100,27 @@ func makeKit(kind string, note float64) (err error) {
 	})
 	log.Infof("found %d samples for '%s'", len(samples), kind)
 	log.Tracef("samples: %+v", samples[0])
+	i = 0
+	j := rand.Intn(24)
+	s := make([]Sample, 24)
+	duration := 0.0
+	rand.Seed(time.Now().UTC().UnixNano())
+	for tries := 0; tries < 40; tries++ {
+
+		j += len(samples) / 12
+		j = j % len(samples)
+		duration += samples[j].Duration
+		if duration > 11.5 {
+			duration -= samples[j].Duration
+			continue
+		}
+		s[i] = samples[j]
+		i++
+	}
+	s = s[:i]
+	b, _ = json.MarshalIndent(s, " ", " ")
+	fmt.Println(string(b))
+	log.Infof("found %d samples, total duration: %2.1f", len(s), duration)
 	return
 }
 
