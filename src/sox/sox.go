@@ -215,6 +215,13 @@ func SilenceTrimEnd(fname string) (fname2 string, err error) {
 	return
 }
 
+// SilenceTrimEndMono trims silence from end of file and converts to mono
+func SilenceTrimEndMono(fname string) (fname2 string, err error) {
+	fname2 = Tmpfile()
+	_, _, err = run("sox", fname, fname2, "reverse", "silence", "1", "0.1", `-50d`, "reverse", "remix", "1,2")
+	return
+}
+
 // Trim will trim the audio from the start point (with optional length)
 func Trim(fname string, start float64, length ...float64) (fname2 string, err error) {
 	fname2 = Tmpfile()
