@@ -17,7 +17,12 @@ func TestRun(t *testing.T) {
 }
 
 func TestPitch(t *testing.T) {
+	log.SetLevel("trace")
 	midi, err := Pitch("40hz.wav")
 	assert.Nil(t, err)
 	assert.Equal(t, 27.5, midi)
+	midi, err = Pitch("c4.flac")
+	assert.Nil(t, err)
+	assert.Equal(t, 60.0, midi)
+
 }

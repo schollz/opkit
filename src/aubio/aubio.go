@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/montanaflynn/stats"
 	log "github.com/schollz/logger"
@@ -76,9 +77,15 @@ func MustFloat(t ...interface{}) float64 {
 }
 
 func Pitch(fname string) (midi float64, err error) {
-	vals := []float64{}
-	rounded := []float64{}
+	start := time.Now()
+	defer func() {
+		log.Tracef("Pitch took %+v", time.Since(start))
+	}()
 
+	vals := make([]float64, 10000)
+	vi := 0
+	rounded := make([]float64, 10000)
+	ri := 0
 	for _, algo := range []string{"schmitt", "mcomb"} {
 		stdout, _, errP := run("aubio", "pitch", "-i", fname, "-m", algo, "-u", "midi")
 		if errP != nil {
@@ -86,6 +93,9 @@ func Pitch(fname string) (midi float64, err error) {
 			continue
 		}
 		for _, line := range strings.Split(stdout, "\n") {
+			if vi == len(vals) {
+				break
+			}
 			foo := strings.Fields(line)
 			if len(foo) < 2 {
 				continue
@@ -94,17 +104,28 @@ func Pitch(fname string) (midi float64, err error) {
 			if val < 0.1 {
 				continue
 			}
-			vals = append(vals, val)
-			rounded = append(rounded, math.Round(val))
+
+			vals[vi] = val
+			vi++
+			rounded[ri] = math.Round(val)
+			ri++
 		}
 	}
+	vals = vals[:vi]
+	rounded = rounded[:ri]
 	mode, _ := stats.Mode(rounded)
-	toavg := []float64{}
+	toavg := make([]float64, len(vals))
+	vi = 0
 	for _, val := range vals {
+		if vi == len(toavg) {
+			break
+		}
 		if val > mode[0]-2 && val < mode[0]+2 {
-			toavg = append(toavg, val)
+			toavg[vi] = val
+			vi++
 		}
 	}
+	toavg = toavg[:vi]
 	midi, _ = stats.Mean(toavg)
 	midi, _ = stats.Round(midi, 1)
 	return
