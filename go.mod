@@ -3,6 +3,7 @@ module github.com/schollz/postsolarpunk
 go 1.19
 
 require (
+	github.com/montanaflynn/stats v0.6.6
 	github.com/schollz/logger v1.2.0
 	github.com/schollz/progressbar/v3 v3.12.1
 	github.com/stretchr/testify v1.8.1

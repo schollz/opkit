@@ -5,11 +5,14 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/hex"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/montanaflynn/stats"
 	log "github.com/schollz/logger"
 )
 
@@ -70,4 +73,39 @@ func MustFloat(t ...interface{}) float64 {
 		return t[0].(float64)
 	}
 	return 0.0
+}
+
+func Pitch(fname string) (midi float64, err error) {
+	vals := []float64{}
+	rounded := []float64{}
+
+	for _, algo := range []string{"schmitt", "mcomb"} {
+		stdout, _, errP := run("aubio", "pitch", "-i", fname, "-m", algo, "-u", "midi")
+		if errP != nil {
+			log.Error(errP)
+			continue
+		}
+		for _, line := range strings.Split(stdout, "\n") {
+			foo := strings.Fields(line)
+			if len(foo) < 2 {
+				continue
+			}
+			val, _ := strconv.ParseFloat(foo[1], 64)
+			if val < 0.1 {
+				continue
+			}
+			vals = append(vals, val)
+			rounded = append(rounded, math.Round(val))
+		}
+	}
+	mode, _ := stats.Mode(rounded)
+	toavg := []float64{}
+	for _, val := range vals {
+		if val > mode[0]-2 && val < mode[0]+2 {
+			toavg = append(toavg, val)
+		}
+	}
+	midi, _ = stats.Mean(toavg)
+	midi, _ = stats.Round(midi, 1)
+	return
 }

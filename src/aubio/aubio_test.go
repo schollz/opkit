@@ -15,3 +15,9 @@ func TestRun(t *testing.T) {
 	assert.True(t, strings.Contains(stdout, "usage"))
 	assert.Empty(t, stderr)
 }
+
+func TestPitch(t *testing.T) {
+	midi, err := Pitch("40hz.wav")
+	assert.Nil(t, err)
+	assert.Equal(t, 27.5, midi)
+}
