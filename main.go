@@ -22,13 +22,14 @@ import (
 )
 
 var flagConvert, flagDebug bool
-var flagKit string
+var flagKit, flagFilenameOut string
 var flagTune float64
 
 func init() {
 	flag.BoolVar(&flagDebug, "debug", false, "debug mode")
 	flag.BoolVar(&flagConvert, "convert", false, "convert all the samples")
 	flag.StringVar(&flagKit, "kit", "", "make kit (Kick, Snare, Hat, Bass)")
+	flag.StringVar(&flagFilenameOut, "out", "out.aif", "output file name")
 	flag.Float64Var(&flagTune, "tune", -1, "midi note to tune kit")
 }
 
@@ -150,7 +151,15 @@ func makeKit(kind string, note float64) (err error) {
 			log.Error(err)
 		}
 	}
-	fmt.Println(convert.ToDrum2(fnames, 0))
+	finalName, err := convert.ToDrum2(fnames, 0)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	if filepath.Ext(flagFilenameOut) != ".aif" {
+		flagFilenameOut += ".aif"
+	}
+	err = os.Rename(finalName, flagFilenameOut)
 	return
 }
 

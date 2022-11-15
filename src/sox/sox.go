@@ -276,7 +276,7 @@ func RetempoSpeed(fname string, old_tempo float64, new_tempo float64) (fname2 st
 // Speed will change the tempo of the audio and pitch
 func Speed(fname string, speed float64) (fname2 string, err error) {
 	fname2 = Tmpfile()
-	_, _, err = run("sox", fname, fname2, "speed", fmt.Sprint(speed), "rate")
+	_, _, err = run("sox", fname, fname2, "speed", fmt.Sprint(speed), "highpass", "5")
 	return
 }
 
