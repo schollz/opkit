@@ -18,6 +18,7 @@ import (
 	log "github.com/schollz/logger"
 	"github.com/schollz/postsolarpunk/src/aubio"
 	"github.com/schollz/postsolarpunk/src/sox"
+	"github.com/schollz/teoperator/src/convert"
 )
 
 var flagConvert, flagDebug bool
@@ -57,9 +58,13 @@ type Sample struct {
 	Path     string
 	Duration float64
 	Midi     float64
+	Ratio    float64
 }
 
 func makeKit(kind string, note float64) (err error) {
+	defer func() {
+		sox.Clean()
+	}()
 	durations := make(map[string]float64)
 	b, err := ioutil.ReadFile("cache_durations.json")
 	if err != nil {
@@ -85,14 +90,17 @@ func makeKit(kind string, note float64) (err error) {
 		foo := strings.Split(fname, "_")
 		if len(foo) > 1 {
 			midi := sox.MustFloat(strconv.ParseFloat(foo[1], 64))
+			ratio := 1.0
 			if flagTune > -1 {
 				duration = repitchedLength(midi, flagTune, duration)
+				ratio = closestRatio(midi, flagTune)
 				midi = closestNote(midi, flagTune)
 			}
 			samples[i] = Sample{
 				Path:     p,
 				Duration: duration,
 				Midi:     midi,
+				Ratio:    ratio,
 			}
 			i++
 		}
@@ -124,11 +132,25 @@ func makeKit(kind string, note float64) (err error) {
 		}
 		s[i] = samples[j]
 		i++
+		if i > len(s)-1 {
+			break
+		}
 	}
 	s = s[:i]
-	b, _ = json.MarshalIndent(s, " ", " ")
-	fmt.Println(string(b))
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].Duration > s[j].Duration
+	})
 	log.Infof("found %d samples, total duration: %2.1f", len(s), duration)
+	fnames := make([]string, len(s))
+	for i, v := range s {
+		fnames[i], err = sox.Speed(v.Path, v.Ratio)
+		d, _ := sox.Length(fnames[i])
+		log.Debugf("%s: %2.3f %2.3f", fnames[i], v.Duration, d)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+	fmt.Println(convert.ToDrum2(fnames, 0))
 	return
 }
 
