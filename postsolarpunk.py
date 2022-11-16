@@ -20,6 +20,6 @@ for j,kit in enumerate(kits):
         while os.path.isfile(fname):
             jj=jj+1
             fname="kits/{}/{}_{}_{}.aif".format(note,kit,jj,note)
-        os.system("./postsolarpunk --kit '{}' --tune {} --out {}".format(kit,i+24,fname))
+        os.system("./opkit --kit '{}' --tune {} --out {}".format(kit,i+24,fname))
         os.system("sox {} 1.wav".format(fname))
         os.system("audiowaveform -i 1.wav -o {}.png -s 0 -e 11.5 --background-color ffffff".format(fname))

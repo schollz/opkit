@@ -16,8 +16,8 @@ import (
 	"time"
 
 	log "github.com/schollz/logger"
-	"github.com/schollz/postsolarpunk/src/aubio"
-	"github.com/schollz/postsolarpunk/src/sox"
+	"github.com/schollz/opkit/src/aubio"
+	"github.com/schollz/opkit/src/sox"
 	"github.com/schollz/teoperator/src/convert"
 )
 

@@ -1,4 +1,4 @@
-module github.com/schollz/postsolarpunk
+module github.com/schollz/opkit
 
 go 1.19
 
