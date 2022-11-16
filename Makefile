@@ -9,7 +9,8 @@ kits: postsolarpunk
 	mkdir -p kits/g
 	mkdir -p kits/ab
 	mkdir -p kits/a
-	python3 run.py
+	mkdir -p kits/bb
+	mkdir -p kits/b
 
 postsolarpunk:
 	go build -v

@@ -118,13 +118,12 @@ func makeKit(kind string, note float64) (err error) {
 	log.Infof("found %d samples for '%s'", len(samples), kind)
 	log.Tracef("samples: %+v", samples[0])
 	i = 0
-	j := rand.Intn(24)
+	j := rand.Intn(12)
 	s := make([]Sample, 24)
 	duration := 0.0
 	rand.Seed(time.Now().UTC().UnixNano())
 	for tries := 0; tries < 40; tries++ {
-
-		j += len(samples) / 12
+		j += len(samples) / 12 + rand.Intn(6)
 		j = j % len(samples)
 		duration += samples[j].Duration
 		if duration > 11.5 {
