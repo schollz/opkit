@@ -16,7 +16,6 @@ postsolarpunk:
 
 clean:
 	rm -rf postsolarpunk
-	rm -rf kits
 	rm -rf *.wav
 	rm -rf *.aif
 	rm -rf *.png
