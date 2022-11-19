@@ -206,14 +206,28 @@ func SilenceTrimEnd(fname string) (fname2 string, err error) {
 	return
 }
 
-// SilenceTrimEndMono trims silence from end of file and converts to mono
-func SilenceTrimEndMono(fname string, fname2 string) (err error) {
+// DrumProcess trims silence from end of file and converts to mono
+func DrumProcess(fname string, fname2 string, speed float64) (err error) {
 	_, channels, _ := Info(fname)
+	fnameTemp := Tmpfile()
+	defer func() {
+		os.Remove(fnameTemp)
+	}()
 	if channels > 1 {
-		_, _, err = run("sox", fname, fname2, "reverse", "silence", "1", "0.1", `-50d`, "reverse", "remix", "1,2")
+		_, _, err = run("sox", fname, fnameTemp, "highpass", "10", "reverse", "silence", "1", "0.05", `-40d`, "reverse", "remix", "1,2", "speed", fmt.Sprint(speed), "rate", "-v", "44100")
 	} else {
-		_, _, err = run("sox", fname, fname2, "reverse", "silence", "1", "0.1", `-50d`, "reverse")
+		_, _, err = run("sox", fname, fnameTemp, "highpass", "10", "reverse", "silence", "1", "0.05", `-40d`, "reverse", "speed", fmt.Sprint(speed), "rate", "-v", "44100")
 	}
+	if err != nil {
+		return
+	}
+	_, _, err = run("sox", fnameTemp, fname2, "fade", "0", "-0", "0.04")
+	return
+}
+
+// Mixer
+func Mixer(fname string, fname2 string, fnameOut string) (err error) {
+	_, _, err = run("sox", "-m", fname, fname2, fnameOut, "norm", "-6")
 	return
 }
 
@@ -276,7 +290,7 @@ func RetempoSpeed(fname string, old_tempo float64, new_tempo float64) (fname2 st
 // Speed will change the tempo of the audio and pitch
 func Speed(fname string, speed float64) (fname2 string, err error) {
 	fname2 = Tmpfile()
-	_, _, err = run("sox", fname, fname2, "speed", fmt.Sprint(speed), "highpass", "5")
+	_, _, err = run("sox", fname, fname2, "speed", fmt.Sprint(speed))
 	return
 }
 

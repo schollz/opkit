@@ -21,7 +21,19 @@ go build -v
 now run the converter:
 
 ```
-./opkit --convert
+./opkit --convert pulsar-23\ postsolarpunk\ pack --out psp2
+```
+
+collect the durations
+
+```
+./opkit --durations psp2
+```
+
+make a mix
+
+```
+./opkit --mix1 psp2/pulsar-23\ postsolarpunk\ pack/808s --mix2 psp2/pulsar-23\ postsolarpunk\ pack/Kicks --out psp2/pulsar-23\ postsolarpunk\ pack/Combo
 ```
 
 this will generate a directory `psp` with all of the converted files.

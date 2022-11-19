@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,19 +19,25 @@ import (
 	log "github.com/schollz/logger"
 	"github.com/schollz/opkit/src/aubio"
 	"github.com/schollz/opkit/src/sox"
+	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/teoperator/src/convert"
 )
 
 var flagConvert, flagDebug bool
-var flagKit, flagFilenameOut string
-var flagTune float64
+var flagKit, flagFilenameOut, flagFolderConvert, flagMix1, flagMix2, flagDurations string
+var flagTune, flagMinLength, flagMaxLength float64
 
 func init() {
 	flag.BoolVar(&flagDebug, "debug", false, "debug mode")
-	flag.BoolVar(&flagConvert, "convert", false, "convert all the samples")
+	flag.StringVar(&flagDurations, "durations", "", "create cache of durations of folder")
 	flag.StringVar(&flagKit, "kit", "", "make kit (Kick, Snare, Hat, Bass)")
-	flag.StringVar(&flagFilenameOut, "out", "out.aif", "output file name")
+	flag.StringVar(&flagFilenameOut, "out", "out.aif", "output file name or folder to convert to")
+	flag.StringVar(&flagFolderConvert, "convert", "", "input folder to convert")
+	flag.StringVar(&flagMix1, "mix1", "", "input folder to mix")
+	flag.StringVar(&flagMix2, "mix2", "", "input folder to mix")
 	flag.Float64Var(&flagTune, "tune", -1, "midi note to tune kit")
+	flag.Float64Var(&flagMinLength, "min", 0, "min length for kit")
+	flag.Float64Var(&flagMaxLength, "max", 2, " max length for kit")
 }
 
 func main() {
@@ -40,9 +47,14 @@ func main() {
 		log.SetLevel("trace")
 	}
 	var err error
-	if flagConvert {
+	if flagDurations != "" {
+		createDurations()
+	}
+	if flagFolderConvert != "" {
 		convertAllFiles()
-
+	}
+	if flagMix1 != "" && flagMix2 != "" {
+		makeMix()
 	}
 	if flagKit != "" {
 		err = makeKit(flagKit, flagTune)
@@ -53,6 +65,53 @@ func main() {
 	}
 	fmt.Println(closestNote(33, 60))
 	fmt.Println(repitchedLength(33, 60, 1))
+}
+
+func makeMix() (err error) {
+	parts := strings.Split(flagMix1, "/")
+	durations := make(map[string]float64)
+	b, err := ioutil.ReadFile(path.Join(parts[0], "cache_durations.json"))
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	err = json.Unmarshal(b, &durations)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	fileList1 := make([]string, len(durations))
+	i := 0
+	for k := range durations {
+		if strings.Contains(k, flagMix1) {
+			fileList1[i] = k
+			i++
+		}
+	}
+	fileList1 = fileList1[:i]
+
+	fileList2 := make([]string, len(durations))
+	i = 0
+	for k := range durations {
+		if strings.Contains(k, flagMix2) {
+			fileList2[i] = k
+			i++
+		}
+	}
+	fileList2 = fileList2[:i]
+	fmt.Println(fileList2[0])
+
+	os.MkdirAll(flagFilenameOut, os.ModePerm)
+
+	rand.Seed(time.Now().UTC().UnixNano())
+	bar := progressbar.Default(500)
+	for i := 0; i < 500; i++ {
+		bar.Add(1)
+		f1 := fileList1[rand.Intn(len(fileList1))]
+		f2 := fileList2[rand.Intn(len(fileList1))]
+		sox.Mixer(f1, f2, path.Join(flagFilenameOut, fmt.Sprintf("mix_%d.wav", i)))
+	}
+	return
 }
 
 type Sample struct {
@@ -67,15 +126,10 @@ func makeKit(kind string, note float64) (err error) {
 		sox.Clean()
 	}()
 	durations := make(map[string]float64)
-	b, err := ioutil.ReadFile("cache_durations.json")
+	b, err := ioutil.ReadFile("psp2/cache_durations.json")
 	if err != nil {
-		err = createDurations()
-		if err != nil {
-			log.Error(err)
-			return
-		}
+		return
 	}
-	b, _ = ioutil.ReadFile("cache_durations.json")
 	err = json.Unmarshal(b, &durations)
 	if err != nil {
 		return
@@ -84,7 +138,7 @@ func makeKit(kind string, note float64) (err error) {
 	samples := make([]Sample, 1000)
 	i := 0
 	for p, duration := range durations {
-		if !strings.Contains(p, kind) || duration < 0.05 {
+		if !strings.Contains(p, kind) || duration < flagMinLength || duration > flagMaxLength {
 			continue
 		}
 		_, fname := filepath.Split(p)
@@ -123,7 +177,7 @@ func makeKit(kind string, note float64) (err error) {
 	duration := 0.0
 	rand.Seed(time.Now().UTC().UnixNano())
 	for tries := 0; tries < 40; tries++ {
-		j += len(samples) / 12 + rand.Intn(6)
+		j += len(samples)/12 + rand.Intn(6)
 		j = j % len(samples)
 		duration += samples[j].Duration
 		if duration > 11.5 {
@@ -193,7 +247,7 @@ func noteRatio(note1, note2 float64) (ratio float64) {
 
 func createDurations() (err error) {
 	m := make(map[string]float64)
-	err = filepath.Walk("psp",
+	err = filepath.Walk(flagDurations,
 		func(p string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -211,36 +265,81 @@ func createDurations() (err error) {
 	if err != nil {
 		return
 	}
-	err = ioutil.WriteFile("cache_durations.json", b, 0644)
+	err = ioutil.WriteFile(path.Join(flagDurations, "cache_durations.json"), b, 0644)
 	return
 }
+
 func convertAllFiles() {
-	pathNew := "psp"
-	it := 0
-	err := filepath.Walk("pulsar-23 postsolarpunk pack",
+	os.MkdirAll(flagFilenameOut, os.ModePerm)
+
+	files := make([]string, 10000)
+	i := 0
+	err := filepath.Walk(flagFolderConvert,
 		func(p string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 			if !info.IsDir() && filepath.Ext(p) == ".wav" {
-				if sox.MustFloat(sox.Length(p)) > 4 {
-					return nil
-				}
-				folder, _ := filepath.Split(p)
-				log.Trace(folder, p)
-				err = os.MkdirAll(path.Join(pathNew, folder), os.ModePerm)
-				if err != nil {
-					log.Error(err)
-				}
-				midi, _ := aubio.Pitch(p)
-				log.Trace(midi)
-				nameNew := fmt.Sprintf("%04d_%2.1f_.wav", it, midi)
-				it++
-				sox.SilenceTrimEndMono(p, path.Join(pathNew, folder, nameNew))
+				files[i] = p
+				i++
 			}
 			return nil
 		})
 	if err != nil {
 		log.Error(err)
 	}
+	files = files[:i]
+
+	numJobs := len(files)
+	type job struct {
+		filename string
+		it       int
+	}
+	type result struct {
+		filename string
+		err      error
+	}
+
+	jobs := make(chan job, numJobs)
+	results := make(chan result, numJobs)
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func(jobs <-chan job, results chan<- result) {
+			for j := range jobs {
+				_ = j
+				// step 3: specify the work for the worker
+				var r result
+				p := j.filename
+				folder, filename := filepath.Split(p)
+				r.filename = filename
+				r.err = os.MkdirAll(path.Join(flagFilenameOut, folder), os.ModePerm)
+				if r.err == nil {
+					midi, _ := aubio.Pitch(p)
+					midi_ref := 31.0 // G
+					ratio := closestRatio(midi, midi_ref)
+					midiClosest := closestNote(midi, midi_ref)
+					nameNew := fmt.Sprintf("%04d_%2.1f_.wav", j.it, midiClosest)
+					r.err = sox.DrumProcess(p, path.Join(flagFilenameOut, folder, nameNew), ratio)
+				}
+				results <- r
+			}
+		}(jobs, results)
+	}
+
+	// step 4: send out jobs
+	for i := 0; i < numJobs; i++ {
+		jobs <- job{files[i], i}
+	}
+	close(jobs)
+
+	// step 5: do something with results
+	bar := progressbar.Default(int64(numJobs))
+	for i := 0; i < numJobs; i++ {
+		bar.Add(1)
+		r := <-results
+		if r.err != nil {
+			log.Errorf("%s: %s", r.filename, r.err)
+		}
+	}
+
 }
